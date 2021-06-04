@@ -84,49 +84,25 @@ export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn:(t: T) => R): () 
 /* 2.4 */
 // you can use 'any' in this question
 
-// export async function asyncWaterfallWithRetry(fns: any[]): Promise<any> {
-//         let currResult;
-//         let j = 0;
-//         try{
-//             currResult = await fns[0]()
-//         }catch(err){
-//             while(j < 2){
-//                 try{
-//                     currResult = await fns[0]()
-//                     j = 0;
-//                 }catch(err){
-//                     setTimeout((): void=>{}, 2000)
-//                     j++;
-//                     if(j == 2){
-//                     throw currResult
-//                     }
-//                 }
-//             }
-//         }
-//         for(let i = 1; i < fns.length; i++){
-//             try{
-//                 currResult = await fns[i](currResult)
-//             }catch(err){
-//                 while(j < 2){
-//                     try{
-//                         currResult = await fns[i](currResult)
-//                     }catch(err){
-//                         setTimeout((): void=>{}, 2000)
-//                         j++;
-//                         if(j == 2)
-//                         throw currResult
-//                     }
-//                 }
-//             }
-//         }
-    
-// }
 
-export async function asyncWaterfallWithRetry(fns: any[]): Promise<any> {
-    const promise: Promise<any> = new Promise<any>((resolve, reject) => {
-        let currResult = fns[0]()
-        for(let i = 1; i < fns.length; i++){
+export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...((param: any) => Promise<any>)[]]): Promise<any> {
+    try{
+        const currResult = await fns[0]()
+        return async2(fns, 1, 0, currResult)
+    }catch(err){
+        setTimeout(() => {}, 2000)
+        return async2(fns, 0, 1, err)
+    }
+}
 
-        }
-    })
+async function async2(fns: [() => Promise<any>, ...((param: any) => Promise<any>)[]], i: number, j: number, lastResult: any): Promise<any> {
+    if(i == fns.length){
+        return lastResult
+    }try{
+        const currResult = await fns[i](lastResult)
+        return async2(fns, i + 1, 0, currResult)
+    }catch(err){
+            setTimeout(() => {}, 2000)
+            return j == 2 ? err : async2(fns, i, j + 1, lastResult)
+    }
 }

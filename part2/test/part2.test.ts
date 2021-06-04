@@ -70,7 +70,6 @@ describe('2.4 (asyncWaterfallWithRetry)', () => {
 
     it('retries twice', async () => {
         let attempt = 1
-        console.log("tset 2.........................................")
         const v = await asyncWaterfallWithRetry([async () => 1, async (v: number) => {
             if (attempt == 3)
                 return v + 1
