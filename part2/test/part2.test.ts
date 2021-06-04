@@ -2,8 +2,8 @@
 
 import chai, { expect } from 'chai';
 
-import {asycMemo, getAll, makePromisedStore, MISSING_KEY } from '../src/part2';
-// asyncWaterfallWithRetry, lazyFilter, lazyMap,
+import {asyncWaterfallWithRetry, lazyMap, lazyFilter, asycMemo, getAll, makePromisedStore, MISSING_KEY } from '../src/part2';
+//  , 
 
 import chaiAsPromised from 'chai-as-promised'
 
@@ -42,40 +42,41 @@ describe('2.2 (asycMemo)', () => {
     })
 })
 
-// describe('2.3 (lazy generators)', () => {
-//     function * countTo4(): Generator<number> {
-//         for (let i = 1; i <= 4; i++) {
-//             yield i
-//         }
-//     }
+describe('2.3 (lazy generators)', () => {
+    function * countTo4(): Generator<number> {
+        for (let i = 1; i <= 4; i++) {
+            yield i
+        }
+    }
 
-//     it('filters', async () => {
-//         const gen = lazyFilter(countTo4, (v) => v % 2 == 0)()
+    it('filters', async () => {
+        const gen = lazyFilter(countTo4, (v) => v % 2 == 0)()
 
-//         expect([...gen]).to.deep.equal([2, 4])
-//     })
+        expect([...gen]).to.deep.equal([2, 4])
+    })
 
-//     it('maps', async () => {
-//         const gen = lazyMap(countTo4, (v) => v ** 2)()
+    it('maps', async () => {
+        const gen = lazyMap(countTo4, (v) => v ** 2)()
 
-//         expect([...gen]).to.deep.equal([1, 4, 9, 16])
-//     })
-// })
+        expect([...gen]).to.deep.equal([1, 4, 9, 16])
+    })
+})
 
-// describe('2.4 (asyncWaterfallWithRetry)', () => {
-//     it('executes sequence', async () => {
-//         const v = await asyncWaterfallWithRetry([async () => 1, async v => v + 1, async v => v * 2 ])
-//         expect(v).to.equal(4)
-//     })
+describe('2.4 (asyncWaterfallWithRetry)', () => {
+    it('executes sequence', async () => {
+        const v = await asyncWaterfallWithRetry([async () => 1, async (v: number) => v + 1, async (v: number) => v * 2 ])
+        expect(v).to.equal(4)
+    })
 
-//     it('retries twice', async () => {
-//         let attempt = 1
-//         const v = await asyncWaterfallWithRetry([async () => 1, async v => {
-//             if (attempt == 3)
-//                 return v + 1
-//             attempt += 1
-//             throw Error()
-//         }, async v => v * 2 ])
-//         expect(v).to.equal(4)
-//     }).timeout(5000)
-// })
+    it('retries twice', async () => {
+        let attempt = 1
+        console.log("tset 2.........................................")
+        const v = await asyncWaterfallWithRetry([async () => 1, async (v: number) => {
+            if (attempt == 3)
+                return v + 1
+            attempt += 1
+            throw Error()
+        }, async (v: number) => v * 2 ])
+        expect(v).to.equal(4)
+    }).timeout(5000)
+})
