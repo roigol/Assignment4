@@ -336,12 +336,12 @@ const parseClassExp = (params: Sexp[]): Result<ClassExp> =>
     parseGoodClassExp(params[1], params[2], params[3]);
 
 const parseGoodClassExp = (typeName: Sexp, varDecls: Sexp, bindings: Sexp): Result<ClassExp> => {
-    if (!isArray(varDecls) ||  !isGoodBindings(bindings)) { 
+    if (!isArray(varDecls) ||  !isGoodBindings(bindings) || !isString(typeName)) { 
         return makeFailure("Invalid class");
     }
     const bindingR = parseBindings(bindings)
     const varsR = mapResult(parseVarDecl, varDecls)
-    return safe2((b : VarDecl[], c: Binding[]) => makeOk(makeClassExp(makeFreshTVar(), b, c)))(varsR, bindingR)
+    return safe2((b : VarDecl[], c: Binding[]) => makeOk(makeClassExp(makeTVar(typeName), b, c)))(varsR, bindingR)
 }
 
 // sexps has the shape (quote <sexp>)
@@ -456,20 +456,22 @@ const unparseClassExp = (ce: ClassExp, unparseWithTVars?: boolean): Result<strin
 
 export const parsedToClassExps = (p: Parsed): ClassExp[] => 
     isExp(p) && isClassExp(p) ? [p] :
-    isProgram(p) ? parsedProgramToClassExp(p.exps, 0) : 
+    isExp(p) && isDefineExp(p) && isClassExp(p.val) ? [p.val] :
+    isProgram(p) ? parsedProgramToClassExp(p.exps, p.exps.length - 1) : 
     [];
     
 
 const parsedProgramToClassExp = (exps: Exp[], i: number) : ClassExp[] => {
-    if(exps.length == 0){
+    if(i == -1){
         return []
     }else{
         const c = exps[i]
         if(isClassExp(c)){
-            
-            return append(c, parsedProgramToClassExp(exps, i+1))
+            return append(c, parsedProgramToClassExp(exps, i-1))
+        }else if(isDefineExp(c) && isClassExp(c.val)){
+            return append(c.val, parsedProgramToClassExp(exps, i-1))
         }else{
-            return parsedProgramToClassExp(exps, i+1)
+        return parsedProgramToClassExp(exps, i-1)
         }
     }
 }

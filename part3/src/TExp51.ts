@@ -114,6 +114,7 @@ export interface ClassTExp { tag: "ClassTExp", typename: string, methods: [strin
 // sort to make it easy to compare classTExps
 export const makeClassTExp = (typename: string, methods: [string, TExp][]): ClassTExp => 
     ({tag: "ClassTExp", typename: typename, methods: methods.sort()});
+    
 export const isClassTExp = (x: any): x is ClassTExp => x.tag === "ClassTExp";
 
 export const classTExpMethods = (ct: ClassTExp): string[] => 

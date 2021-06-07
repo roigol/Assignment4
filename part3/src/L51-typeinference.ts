@@ -102,8 +102,14 @@ const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =
 // so that the user defined types are known to the type inference system.
 // For each class (class : typename ...) add a pair <class.typename classTExp> to TEnv
 export const makeTEnvFromClasses = (parsed: A.Parsed): E.TEnv => {
-    // TODO makeTEnvFromClasses
-    return E.makeEmptyTEnv();
+    const classes : A.ClassExp[] = A.parsedToClassExps(parsed)
+    const classTypes = R.map((c: A.ClassExp) => c.typeName.var, classes)
+    // const fieldsVarDelArr =  R.reduce((acc: A.VarDecl[], elem: A.ClassExp) => R.concat(acc, elem.fields), [], classes)
+    // const fieldsTypes = R.map((v: A.VarDecl) => v.texp, fieldsVarDelArr)
+    // const fieldsNames = R.map((v: A.VarDecl) => v.var, fieldsVarDelArr)
+    const classesTEXp = R.map((c: A.ClassExp) => A.classExpToClassTExp(c), classes)
+    // return E.makeExtendTEnv(R.concat(classTypes, fieldsNames), R.concat(classesTEXp, fieldsTypes), E.makeEmptyTEnv()) 
+    return E.makeExtendTEnv(classTypes ,classesTEXp, E.makeEmptyTEnv()) 
 }
 
 // Purpose: Compute the type of a concrete expression
@@ -300,5 +306,16 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 //      type<method_k>(class-tenv) = mk
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
-    return makeFailure("TODO typeofClass");
+    const fieldsTypes = R.map((f: A.VarDecl) => f.texp, exp.fields)
+    const methodsTypes = R.map((m: A.Binding) => m.var.texp, exp.methods)
+    const extEnv = E.makeExtendTEnv(R.map((v: A.VarDecl) => v.var, exp.fields), R.map((v: A.VarDecl) => v.texp, exp.fields), tenv)
+    console.log(extEnv)
+    const typeOfmethods = mapResult((m: A.Binding) => typeofExp(m.val, extEnv), exp.methods)
+    const equal = bind(typeOfmethods, (t: T.TExp[]) => zipWithResult((expT: T.TExp, compT: T.TExp) => checkEqualType(expT,compT, exp), t, methodsTypes))
+    const out = bind(equal, _=>makeOk(T.makeProcTExp(fieldsTypes, A.classExpToClassTExp(exp))))
+    bind(out, (x) => {
+        console.log(T.unparseTExp(x))
+        return makeFailure("")
+    })
+    return out
 };
