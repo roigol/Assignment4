@@ -6,7 +6,7 @@ import * as TC from "./L51-typecheck";
 import * as V from "../imp/L5-value";
 import * as E from "../imp/TEnv";
 import * as T from "./TExp51";
-import { allT, first, rest, isEmpty } from "../shared/list";
+import { allT, first, rest, isEmpty, second } from "../shared/list";
 import { isNumber, isString } from '../shared/type-predicates';
 import { Result, makeFailure, makeOk, bind, safe2, safe3, zipWithResult, mapResult } from "../shared/result";
 
@@ -104,11 +104,7 @@ const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =
 export const makeTEnvFromClasses = (parsed: A.Parsed): E.TEnv => {
     const classes : A.ClassExp[] = A.parsedToClassExps(parsed)
     const classTypes = R.map((c: A.ClassExp) => c.typeName.var, classes)
-    // const fieldsVarDelArr =  R.reduce((acc: A.VarDecl[], elem: A.ClassExp) => R.concat(acc, elem.fields), [], classes)
-    // const fieldsTypes = R.map((v: A.VarDecl) => v.texp, fieldsVarDelArr)
-    // const fieldsNames = R.map((v: A.VarDecl) => v.var, fieldsVarDelArr)
     const classesTEXp = R.map((c: A.ClassExp) => A.classExpToClassTExp(c), classes)
-    // return E.makeExtendTEnv(R.concat(classTypes, fieldsNames), R.concat(classesTEXp, fieldsTypes), E.makeEmptyTEnv()) 
     return E.makeExtendTEnv(classTypes ,classesTEXp, E.makeEmptyTEnv()) 
 }
 
@@ -246,15 +242,9 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
 //   (define (var : texp) val)
 // TODO - write the typing rule for define-exp
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    if(!A.isProcExp(exp.val)){
-        const valType = typeofExp(exp.val, tenv)
-        const isEqual = safe3(checkEqualType)(valType, makeOk(exp.var.texp), makeOk(exp))
-        return bind(isEqual, _=>makeOk(T.makeVoidTExp()))
-    }else{
         const procType = typeofExp(exp.val, E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv))
         const isEqual = safe3(checkEqualType)(procType, makeOk(exp.var.texp), makeOk(exp))
         return bind(isEqual, _=>makeOk(T.makeVoidTExp()))
-    }
 };
 
 // Purpose: compute the type of a program
@@ -266,15 +256,12 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
 
 const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => {
-    if (A.isDefineExp(exp)) {
-        const extEnv: Result<E.ExtendTEnv> = bind(typeofDefine(exp,tenv),_=>makeOk(E.makeExtendTEnv([exp.var.var],[exp.var.texp],tenv)))
-        return exps.length == 0 ? bind(extEnv,_=>makeOk(T.makeVoidTExp())) : 
-        bind(extEnv,(tenvN: E.TEnv) => typeofProgramExps(first(exps), rest(exps), tenvN))
+    if(A.isDefineExp(exp)){
+        const extEnv  = bind(typeofDefine(exp, tenv), _=> makeOk(E.makeExtendTEnv([exp.var.var], [exp.var.texp], tenv)))
+        return exps.length == 0 ? bind(extEnv, _=> makeOk(T.makeVoidTExp())) : 
+        bind(extEnv, (newTenv: E.TEnv) => typeofProgramExps(first(exps), rest(exps), newTenv))
     }else{
-        while(!isEmpty(exps)){
-        bind(typeofExp(exp,tenv),_=>typeofProgramExps(first(exps),rest(exps),tenv))
-        }
-    return typeofExp(exp,tenv)
+        return exps.length == 0 ? typeofExp(exp, tenv) : bind(typeofExp(exp, tenv), _=>typeofProgramExps(first(exps), rest(exps), tenv))
     }
 }
 
@@ -306,16 +293,10 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 //      type<method_k>(class-tenv) = mk
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
-    const fieldsTypes = R.map((f: A.VarDecl) => f.texp, exp.fields)
-    const methodsTypes = R.map((m: A.Binding) => m.var.texp, exp.methods)
-    const extEnv = E.makeExtendTEnv(R.map((v: A.VarDecl) => v.var, exp.fields), R.map((v: A.VarDecl) => v.texp, exp.fields), tenv)
-    console.log(extEnv)
-    const typeOfmethods = mapResult((m: A.Binding) => typeofExp(m.val, extEnv), exp.methods)
-    const equal = bind(typeOfmethods, (t: T.TExp[]) => zipWithResult((expT: T.TExp, compT: T.TExp) => checkEqualType(expT,compT, exp), t, methodsTypes))
-    const out = bind(equal, _=>makeOk(T.makeProcTExp(fieldsTypes, A.classExpToClassTExp(exp))))
-    bind(out, (x) => {
-        console.log(T.unparseTExp(x))
-        return makeFailure("")
-    })
-    return out
+    const UserFieldsTypes = R.map((f: A.VarDecl) => f.texp, exp.fields)
+    const UserMethodsTypes = R.map((m: A.Binding) => m.var.texp, exp.methods)
+    const extEnvWithFieldsTypes = E.makeExtendTEnv(R.map((v: A.VarDecl) => v.var, exp.fields),UserFieldsTypes, tenv)
+    const typeOfmethods = mapResult((m: A.Binding) => typeofExp(m.val, extEnvWithFieldsTypes), exp.methods)
+    const equal = bind(typeOfmethods, (t: T.TExp[]) => zipWithResult((expT: T.TExp, compT: T.TExp) => checkEqualType(expT,compT, exp), t, UserMethodsTypes))
+    return bind(equal, _=>makeOk(T.makeProcTExp(UserFieldsTypes, A.classExpToClassTExp(exp))))
 };
